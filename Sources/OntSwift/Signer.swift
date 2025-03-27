@@ -6,61 +6,44 @@
 //
 
 import Foundation
-import secp256k1
+import BigInt
 
 public protocol Signer {
-    func sign(_ data: Data) throws -> Data
+    func sign(_ data: Data) throws -> Signature
 }
 
 public struct Signature {
-    public let v: UInt8
     public let r: Data
     public let s: Data
+    public let v: UInt8
+    
+    var data: Data { r + s + v }
 }
 
 public struct DefaultSigner: Signer {
-    private let privateKey: PrivateKey
-    public init(privateKey: PrivateKey) {
+    private let privateKey: Data
+    public init(privateKey: Data) {
         self.privateKey = privateKey
     }
     
-    public func sign(_ data: Data) throws -> Data {
-        let privateKey = try secp256k1.Signing.PrivateKey(dataRepresentation: privateKey.data)
-        let signature = try privateKey.signature(for: data)
-        return signature.dataRepresentation
-//        let privateKey = try P256.Signing.PrivateKey(rawRepresentation: Data(self.privateKey))
-//        let signature = try privateKey.signature(for: data)
-//        return signature.rawRepresentation
-    }
-}
+    public func sign(_ data: Data) throws -> Signature {
+        let data = data.sha256()
+        let z = BigInt(sign: .plus, magnitude: BigInt.Magnitude(data)) // = message.asData().toNumber()
 
+        var r: BigInt = 0
+        var s: BigInt = 0
+        let d = BigInt(sign: .plus, magnitude: BigInt.Magnitude(privateKey))
 
-extension secp256k1.Signing.PrivateKey {
-    func rfc6979Signature<D>(for digest: D) throws -> secp256k1.Signing.ECDSASignature where D : Digest {
-        let context = secp256k1.Context.rawRepresentation
-        var signature = secp256k1_ecdsa_signature()
-        guard secp256k1_ecdsa_sign(
-            context,
-            &signature,
-            Array(digest),
-            Array(dataRepresentation),
-            secp256k1_nonce_function_rfc6979,
-            nil
-        ).boolValue else {
-            throw secp256k1Error.underlyingCryptoError
-        }
-        return try secp256k1.Signing.ECDSASignature(dataRepresentation: signature.dataValue)
-    }
-    
-    public func rfc6979Signature<D: DataProtocol>(for data: D) throws -> secp256k1.Signing.ECDSASignature {
-        try rfc6979Signature(for: SHA256.hash(data: data))
-    }
-}
+        repeat {
+            var k = RFC6979.generateK(privateKey: privateKey, message: data)
+            k = secp256r1Curve.modN { k } // make sure k belongs to [0, n - 1]
 
-/// An extension for Int32 providing a convenience property.
-extension Int32 {
-    /// A property that returns a Bool representation of the Int32 value.
-    var boolValue: Bool {
-        Bool(truncating: NSNumber(value: self))
+            let point: Curve.Point = secp256r1Curve.G * k
+            r = secp256r1Curve.modN { point.x }
+            guard !r.isZero else { continue }
+            let kInverse = secp256r1Curve.modInverseN(1, k)
+            s = secp256r1Curve.modN { kInverse * (z + r * d) }
+        } while s.isZero
+        return Signature(r: r.magnitude.serialize(), s: s.magnitude.serialize(), v: 1)
     }
 }

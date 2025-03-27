@@ -2,7 +2,9 @@ import Testing
 import Foundation
 import CryptoSwift
 import CryptoKit
+import BigInt
 import Web3Tool
+import CryptorECC
 @testable import OntSwift
 
 let mnemonic = "bone swamp olympic slender ignore error hour orient cricket night direct answer"
@@ -60,10 +62,12 @@ let wif = "KzJJBi5KNzjxAczbtvJqxLDdrK8RXHBg8grxYf3DDKAod9svN5vV"
 }
 
 @Test func signature() async throws {
-    let privateKey = try PrivateKey(data: Data(hex: privateKeyHex))
-    let messageData = "123456789".data(using: .utf8)!
-    print(messageData.toHexString())
-    let signer = DefaultSigner(privateKey: privateKey)
-    let signature = try signer.sign(messageData)
-    print(signature.toHexString())
+    let signer = DefaultSigner(privateKey: Data(hex: privateKeyHex))
+    let signature = try signer.sign("123333".data(using: .utf8)!)
+    #expect(signature.data.toHexString() == "9ff6f4ca1b4c95896e2c561bfbe6551cb1c12096c856786c5e784bd979aa0947818aeed48ea2f816553b83cb6e478d0afa79cabc2bad4f7ce5e50b5cf0de93c601")
+}
+
+@Test func testK() {
+    let k = RFC6979.generateK(privateKey: Data(hex: privateKeyHex), message: "sample".data(using: .utf8)!.sha256())
+    print(String(k, radix: 16))
 }
