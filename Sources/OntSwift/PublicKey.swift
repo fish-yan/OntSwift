@@ -20,6 +20,13 @@ public struct PublicKey {
         let publicKey = privateKey.publicKey.compressedRepresentation
         self.init(data: publicKey)
     }
+    
+    func serialize() throws -> Data {
+        try ScriptBuilder()
+            .push(varbytes: data)
+            .push(opcode: Opcode.CHECKSIG)
+            .buf
+    }
 }
 
 enum PublicKeyError: Error {

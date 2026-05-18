@@ -10,6 +10,9 @@ import Base58
 import RIPEMD160
 
 public struct Address {
+    public static let ont = "0000000000000000000000000000000000000001"
+    public static let ong = "0000000000000000000000000000000000000002"
+    
     private static let coinVersion: UInt8 = 0x17
     
     public let data: Data

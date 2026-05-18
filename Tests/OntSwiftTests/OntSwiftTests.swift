@@ -4,7 +4,6 @@ import CryptoSwift
 import CryptoKit
 import BigInt
 import Web3Tool
-import CryptorECC
 @testable import OntSwift
 
 let mnemonic = "bone swamp olympic slender ignore error hour orient cricket night direct answer"

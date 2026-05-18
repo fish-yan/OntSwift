@@ -8,6 +8,7 @@
 import Foundation
 import Bip39
 import HDNode
+import BigInt
 
 public class Account {
     private static let path = "m/44'/1024'/0'/0/0"
@@ -30,6 +31,16 @@ public class Account {
         }
         try self.init(privateKey: privateKey)
     }
+    
+    func sendNative(to: Address, amount: BigUInt, gasPrice: BigUInt = 0, gasLimit: BigUInt = 20000) {
+        let structure = Struct()
+        structure.add(params: address, to, amount)
+        let list = [[structure]]
+        let transaction = Transaction()
+        transaction.from = address
+        transaction.to = to
+    }
+    
 }
 
 enum AccountError: Error {

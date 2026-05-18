@@ -28,7 +28,7 @@ public struct DefaultSigner: Signer {
     
     public func sign(_ data: Data) throws -> Signature {
         let data = data.sha256()
-        let z = BigInt(sign: .plus, magnitude: BigInt.Magnitude(data)) // = message.asData().toNumber()
+        let z = BigInt(sign: .plus, magnitude: BigInt.Magnitude(data))
 
         var r: BigInt = 0
         var s: BigInt = 0
