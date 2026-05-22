@@ -17,7 +17,14 @@ public struct Signature {
     public let s: Data
     public let v: UInt8
     
-    var data: Data { r + s + v }
+    public init(r: Data, s: Data, v: UInt8 = 1) {
+        self.r = r
+        self.s = s
+        self.v = v
+    }
+    
+    public var data: Data { r + s + v }
+    var rawData: Data { r + s }
 }
 
 public struct DefaultSigner: Signer {
@@ -27,7 +34,10 @@ public struct DefaultSigner: Signer {
     }
     
     public func sign(_ data: Data) throws -> Signature {
-        let data = data.sha256()
+        try signDigest(data.sha256())
+    }
+    
+    public func signDigest(_ data: Data) throws -> Signature {
         let z = BigInt(sign: .plus, magnitude: BigInt.Magnitude(data))
 
         var r: BigInt = 0
@@ -44,6 +54,10 @@ public struct DefaultSigner: Signer {
             let kInverse = secp256r1Curve.modInverseN(1, k)
             s = secp256r1Curve.modN { kInverse * (z + r * d) }
         } while s.isZero
-        return Signature(r: r.magnitude.serialize(), s: s.magnitude.serialize(), v: 1)
+        return Signature(
+            r: r.magnitude.serialize().leftPadded(to: 32),
+            s: s.magnitude.serialize().leftPadded(to: 32),
+            v: 1
+        )
     }
 }

@@ -19,14 +19,26 @@ public class ScriptBuilder {
     
     @discardableResult
     public func push(num: some FixedWidthInteger & BinaryConvertible) throws -> Self {
-        if num == -1 {
+        if Int64(exactly: num) == -1 {
             buf += Opcode.PUSHM1
         } else if num == 0 {
             buf += Opcode.PUSH0
-        } else if num > 0 && num < 16 {
+        } else if num > 0 && num <= 16 {
             buf += (Opcode.PUSH1 - 1 + UInt8(num))
         } else {
-            _ = try push(data: BigInt(num).serialize())
+            let data: Data
+            if type(of: num).isSigned {
+                guard let value = Int64(exactly: num) else {
+                    throw ScriptBuilderError.invalidParams
+                }
+                data = Data(littleEndian: value)
+            } else {
+                guard let value = UInt64(exactly: num) else {
+                    throw ScriptBuilderError.invalidParams
+                }
+                data = Data(littleEndian: value)
+            }
+            _ = try push(data: data)
         }
         return self
     }
@@ -45,17 +57,23 @@ public class ScriptBuilder {
     
     @discardableResult
     public func push(varint: Int) throws -> Self {
+        guard varint >= 0 else { throw ScriptBuilderError.invalidParams }
+        return try push(varint: UInt64(varint))
+    }
+    
+    @discardableResult
+    public func push(varint: UInt64) throws -> Self {
         if varint < 0xFD {
             buf += UInt8(varint)
-        } else if varint < 0xFFFF {
+        } else if varint <= 0xFFFF {
             buf += UInt8(0xFD)
-            buf += UInt16(varint)
-        } else if varint < (0xFFFF_FFFF as UInt) {
+            buf += UInt16(varint).littleEndian
+        } else if varint <= 0xFFFF_FFFF {
             buf += UInt8(0xFE)
-            buf += UInt32(varint)
+            buf += UInt32(varint).littleEndian
         } else {
             buf += UInt8(0xFF)
-            buf += UInt64(varint)
+            buf += UInt64(varint).littleEndian
         }
         return self
     }
@@ -107,6 +125,24 @@ public class ScriptBuilder {
     @discardableResult
     public func push(opcode: UInt8) throws -> Self {
         buf += opcode
+        return self
+    }
+    
+    @discardableResult
+    public func append(littleEndian value: UInt8) -> Self {
+        buf += value
+        return self
+    }
+    
+    @discardableResult
+    public func append(littleEndian value: UInt32) -> Self {
+        buf += value.littleEndian
+        return self
+    }
+    
+    @discardableResult
+    public func append(littleEndian value: UInt64) -> Self {
+        buf += value.littleEndian
         return self
     }
     

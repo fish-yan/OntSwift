@@ -60,3 +60,20 @@ extension Data: BinaryConvertible {
         return data
     }
 }
+
+extension Data {
+    init<T: FixedWidthInteger>(littleEndian value: T) {
+        var value = value.littleEndian
+        self = Swift.withUnsafeBytes(of: &value) { Data($0) }
+    }
+    
+    func leftPadded(to count: Int) -> Data {
+        guard self.count < count else { return self }
+        return Data(repeating: 0, count: count - self.count) + self
+    }
+    
+    func rightPadded(to count: Int) -> Data {
+        guard self.count < count else { return self }
+        return self + Data(repeating: 0, count: count - self.count)
+    }
+}

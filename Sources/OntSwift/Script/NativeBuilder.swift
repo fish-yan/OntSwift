@@ -6,60 +6,84 @@
 //
 
 import Foundation
+import BigInt
 
 class NativeBuilder: ScriptBuilder {
     @discardableResult
+    public func push(parameter: NativeParameter) throws -> Self {
+        switch parameter {
+        case let .bytes(data):
+            try push(data: data)
+        case let .hex(hex):
+            try push(hex: hex)
+        case let .bool(value):
+            try push(b: value)
+        case let .int(value):
+            try push(num: value)
+        case let .uint64(value):
+            try push(num: value)
+        case let .address(address):
+            try push(address: address)
+        case let .fixedBigUInt(value, byteCount):
+            try push(data: value.littleEndianData(paddedTo: byteCount))
+        case let .structure(structure):
+            try push(structure: structure)
+        case let .structures(structures):
+            try push(structures: structures)
+        case let .array(parameters):
+            try push(parameters: parameters)
+                .push(num: parameters.count)
+                .push(opcode: Opcode.PACK)
+        }
+        return self
+    }
+    
+    @discardableResult
     public func push(obj: Any) throws -> Self {
-      switch obj {
-      case let obj as String:
-        try push(hex: obj)
-      case let obj as Data:
-        try push(data: obj)
-      case let obj as Bool:
-        try push(b: obj)
-      case let obj as Int:
-        try push(num: obj)
-      case let obj as Address:
-        try push(address: obj)
-      case let obj as Struct:
-        try obj.list.forEach {
-          try push(obj: $0)
+        try push(parameter: NativeParameter(obj))
+    }
+    
+    @discardableResult
+    func push(structure: Struct) throws -> Self {
+        try structure.fields.forEach {
+            try push(parameter: $0)
                 .push(opcode: Opcode.DUPFROMALTSTACK)
                 .push(opcode: Opcode.SWAP)
                 .push(opcode: Opcode.APPEND)
         }
-      case let obj as [Struct]:
-          try obj.forEach { try push(obj: $0) }
-      default:
-        throw NativeBuilderError.unsupportedParamType
-      }
-      return self
+        return self
     }
     
     @discardableResult
-    func push(objs: [Any]) throws -> Self {
-        for obj in objs {
-            switch obj {
-            case let obj as Struct:
+    func push(structures: [Struct]) throws -> Self {
+        try structures.forEach { try push(structure: $0) }
+        return self
+    }
+    
+    @discardableResult
+    func push(parameters: [NativeParameter]) throws -> Self {
+        for parameter in parameters {
+            switch parameter {
+            case let .structure(structure):
                 try push(num: 0)
                     .push(opcode: Opcode.NEWSTRUCT)
                     .push(opcode: Opcode.TOALTSTACK)
-                    .push(obj: obj)
+                    .push(structure: structure)
                     .push(opcode: Opcode.FROMALTSTACK)
-            case let obj as [Struct]:
+            case let .structures(structures):
                 try push(num: 0)
                     .push(opcode: Opcode.NEWSTRUCT)
                     .push(opcode: Opcode.TOALTSTACK)
-                    .push(obj: obj)
+                    .push(structures: structures)
                     .push(opcode: Opcode.FROMALTSTACK)
-                    .push(num: obj.count)
+                    .push(num: structures.count)
                     .push(opcode: Opcode.PACK)
-            case let obj as [Any]:
-                try push(objs: obj)
-                    .push(num: obj.count)
+            case let .array(parameters):
+                try push(parameters: parameters)
+                    .push(num: parameters.count)
                     .push(opcode: Opcode.PACK)
             default:
-                try push(obj: obj)
+                try push(parameter: parameter)
             }
         }
         return self
@@ -69,4 +93,14 @@ class NativeBuilder: ScriptBuilder {
 
 public enum NativeBuilderError: Error {
   case unsupportedParamType, invalidParams
+}
+
+extension BigUInt {
+    func littleEndianData(paddedTo count: Int) throws -> Data {
+        let bigEndianData = serialize()
+        guard bigEndianData.count <= count else {
+            throw NativeBuilderError.invalidParams
+        }
+        return Data(bigEndianData.reversed()).rightPadded(to: count)
+    }
 }

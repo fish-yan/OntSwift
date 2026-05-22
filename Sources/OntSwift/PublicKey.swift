@@ -9,21 +9,21 @@ import Foundation
 import CryptoKit
 
 public struct PublicKey {
-    let data: Data
+    public let data: Data
     
-    init(data: Data) {
+    public init(data: Data) {
         self.data = data
     }
     
-    init(privateKey: Data) throws {
+    public init(privateKey: Data) throws {
         let privateKey = try P256.Signing.PrivateKey(rawRepresentation: privateKey.bytes)
         let publicKey = privateKey.publicKey.compressedRepresentation
         self.init(data: publicKey)
     }
     
-    func serialize() throws -> Data {
+    public func serialize() throws -> Data {
         try ScriptBuilder()
-            .push(varbytes: data)
+            .push(data: data)
             .push(opcode: Opcode.CHECKSIG)
             .buf
     }

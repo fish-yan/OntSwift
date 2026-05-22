@@ -8,7 +8,6 @@
 import Foundation
 import Bip39
 import HDNode
-import BigInt
 
 public class Account {
     private static let path = "m/44'/1024'/0'/0/0"
@@ -16,13 +15,13 @@ public class Account {
     public let publicKey: PublicKey
     public let address: Address
     
-    init(privateKey: Data) throws {
+    public init(privateKey: Data) throws {
         self.privateKey = try PrivateKey(data: privateKey)
         publicKey = try PublicKey(privateKey: privateKey)
         address = Address(publicKey: publicKey.data)
     }
     
-    convenience init(mnemonic: String) throws {
+    public convenience init(mnemonic: String) throws {
         guard let seed = BIP39.seedFromMmemonics(mnemonic),
               let masterNode = HDNode(seed: seed, seedType: .nist256p1),
               let node = masterNode.derive(path: Account.path),
@@ -32,19 +31,18 @@ public class Account {
         try self.init(privateKey: privateKey)
     }
     
-    func sendNative(to: Address, amount: BigUInt, gasPrice: BigUInt = 0, gasLimit: BigUInt = 20000) {
-        let structure = Struct()
-        structure.add(params: address, to, amount)
-        let list = [[structure]]
-        let transaction = Transaction()
-        transaction.from = address
-        transaction.to = to
+    public func signNativeTransfer(_ request: NativeTransferRequest) throws -> Transaction {
+        guard request.from.data == address.data else {
+            throw AccountError.addressMismatch
+        }
+        let transaction = try request.makeTransaction()
+        try transaction.sign(with: self)
+        return transaction
     }
-    
 }
 
-enum AccountError: Error {
+public enum AccountError: Error {
     case invalidData
     case deriveFailed
+    case addressMismatch
 }
-

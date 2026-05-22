@@ -17,9 +17,13 @@ public struct TxSignature {
     }
     
     func serialize() throws -> Data {
-        try ScriptBuilder()
-            .push(varbytes: signature.data)
-            .push(varbytes: publicKey.serialize())
+        let signatureProgram = try ScriptBuilder()
+            .push(data: signature.rawData)
+            .buf
+        let publicKeyProgram = try publicKey.serialize()
+        return try ScriptBuilder()
+            .push(varbytes: signatureProgram)
+            .push(varbytes: publicKeyProgram)
             .buf
     }
 }
